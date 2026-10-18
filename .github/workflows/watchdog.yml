@@ -1,0 +1,32 @@
+name: BlueBird availability
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Backend environment
+        type: choice
+        options: [staging, production]
+        default: staging
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: bluebird-availability-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+jobs:
+  check:
+    if: github.event_name == 'workflow_dispatch' || vars.PRODUCTION_LIVE == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    environment: ${{ inputs.environment || 'production' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: node scripts/watchdog.ts
+        env:
+          API_ORIGIN: ${{ inputs.environment == 'staging' && 'https://api-staging.bluebirdspotter.space' || 'https://api.bluebirdspotter.space' }}
+          MONITOR_TOKEN: ${{ secrets.MONITOR_TOKEN }}
